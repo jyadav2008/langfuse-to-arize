@@ -1,0 +1,10 @@
+# Runtime dependencies. Floors are the versions this tool was verified with
+# end to end (1,000,199 spans, Langfuse v4.53.0 -> Arize AX).
+arize>=8.50.0,<9
+arize-otel>=0.14
+opentelemetry-sdk>=1.30
+opentelemetry-exporter-otlp-proto-grpc>=1.30
+openinference-semantic-conventions>=0.1
+pandas>=2.0
+pyarrow>=14
+httpx>=0.27

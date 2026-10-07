@@ -1,0 +1,14 @@
+# Credentials and customer data must never be committed.
+.env
+.env.*
+!.env.example
+out/
+manifests/
+export/
+*.log
+*.pid
+
+# Tooling
+.venv/
+__pycache__/
+*.py[cod]
