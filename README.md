@@ -8,9 +8,6 @@ You supply credentials for both systems. The tool discovers the history,
 splits it into days, uploads it, reads it back to prove it landed, and can be
 interrupted and resumed at any point.
 
-**Verified at scale:** 1,000,199 spans across 60 days migrated and read back in
-about 25 minutes (Langfuse v4.53 self-hosted → Arize AX).
-
 ---
 
 ## Contents
@@ -21,13 +18,12 @@ about 25 minutes (Langfuse v4.53 self-hosted → Arize AX).
 4. [Configure](#4-configure)
 5. [Run a migration, step by step](#5-run-a-migration-step-by-step)
 6. [Reading the results](#6-reading-the-results)
-7. [How long it takes](#7-how-long-it-takes)
-8. [Several Langfuse projects](#8-several-langfuse-projects)
-9. [Evaluators and evaluation rules](#9-evaluators-and-evaluation-rules)
-10. [Troubleshooting](#10-troubleshooting)
-11. [Known limitations](#11-known-limitations)
-12. [Security](#12-security)
-13. [Reference](#13-reference)
+7. [Several Langfuse projects](#7-several-langfuse-projects)
+8. [Evaluators and evaluation rules](#8-evaluators-and-evaluation-rules)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Known limitations](#10-known-limitations)
+11. [Security](#11-security)
+12. [Reference](#12-reference)
 
 ---
 
@@ -38,18 +34,18 @@ about 25 minutes (Langfuse v4.53 self-hosted → Arize AX).
 | Traces and observations | Spans in one AX project | Hierarchy, timestamps, inputs, outputs, metadata, model, token usage and cost preserved |
 | Sessions | Spans keep their `session.id` | Sessions appear in AX's session view |
 | Scores on traces / observations | `trace_eval.*` / `eval.*` columns | Uploaded with the spans |
-| Scores on sessions | `session_eval.*` columns | Uploaded with the spans — see [known limitations](#11-known-limitations) |
+| Scores on sessions | `session_eval.*` columns | Uploaded with the spans |
 | Human annotations | AX annotations | Written per day after upload |
 | Score configs | Annotation configs | Same names as the migrated score columns, so they bind |
 | Prompts, all versions | Prompts with versions and labels | Templates carried over unchanged |
 | Datasets and items | Datasets with examples | Item `input` keys become columns |
-| LLM-as-judge evaluators | Template evaluators | Needs an AX AI integration — see [§9](#9-evaluators-and-evaluation-rules) |
-| Code evaluators | Exported to files | Manual port — see [§9](#9-evaluators-and-evaluation-rules) |
+| LLM-as-judge evaluators | Template evaluators | Needs an AX AI integration — see [§8](#8-evaluators-and-evaluation-rules) |
+| Code evaluators | Exported to files | Manual port — see [§8](#8-evaluators-and-evaluation-rules) |
 | Evaluation rules | Evaluation tasks | Planned only, unless you opt in |
 
 **Scope is one Langfuse project per run.** A Langfuse key pair belongs to
 exactly one project, so the keys you supply decide what is migrated. See
-[§8](#8-several-langfuse-projects) for more than one.
+[§7](#7-several-langfuse-projects) for more than one.
 
 ---
 
@@ -71,7 +67,7 @@ exactly one project, so the keys you supply decide what is migrated. See
 - An **API key** with write access to the target space.
 - The **space ID** (Space settings).
 - Your space's **region**, if it is not the default US one. A wrong region
-  looks exactly like bad credentials — see [Troubleshooting](#10-troubleshooting).
+  looks exactly like bad credentials — see [Troubleshooting](#9-troubleshooting).
 - Optional: an **AI integration ID**, only if you want LLM-as-judge evaluators
   migrated.
 
@@ -178,7 +174,7 @@ Two lines are worth reading closely:
   is your last chance to catch the wrong key pair before anything is written.
 - **Source is quiet.** If this warns that the count moved, something is still
   writing into Langfuse. For a bulk load or import, wait for it to finish. For
-  live production traffic it's expected — see [limitations](#11-known-limitations).
+  live production traffic it's expected — see [limitations](#10-known-limitations).
 
 Fix anything marked `FAIL` before going on.
 
@@ -334,47 +330,7 @@ A resumed run always keeps the project it started with.
 
 ---
 
-## 7. How long it takes
-
-Measured end to end:
-
-| Migration | Path | Wall time |
-|---|---|---|
-| 1,000,199 spans, 60 days | bulk | **~25 min** — export 4.6 min, upload 11.8 min (1,408 spans/s), verify 8.4 min |
-| 11,313 spans, 14 days | OTLP | **29 s** |
-
-Rough rule for large migrations: **about 25 minutes per million spans**, plus
-one read-back wait of 5–8 minutes at the end. Reading from Langfuse runs at
-about 3,700 observations per second when the tool runs near Langfuse; across a
-VPC or region boundary, expect that part to take longer.
-
-### Ingest path
-
-There are two ways to send spans to Arize, and the tool picks one
-automatically (`LFMIGRATE_INGEST_PATH=auto`):
-
-| Path | When `auto` picks it | Why |
-|---|---|---|
-| **Bulk** (Arrow) | History older than 31 days, or more than ~830k spans | Faster per span, and the only path that can attach scores to old spans |
-| **OTLP** | Recent, smaller migrations | Data becomes visible in seconds rather than minutes |
-
-A real historical backfill will almost always use the bulk path. The reason
-is printed at the start of the run. You can force a path with
-`--ingest arrow` (bulk) or `--ingest otlp`, but `auto` is the right choice
-unless you have a specific reason.
-
-### Things that make it faster
-
-- **Run near Langfuse.**
-- **`--no-validate`** after a successful trial run: skips the SDK's local
-  data checks, roughly 30% faster uploads.
-- **Leave verification on the default** (`end`): one read-back for the whole
-  migration. `--verify-each-day` waits for indexing after every day and adds
-  5–8 minutes *per day*.
-
----
-
-## 8. Several Langfuse projects
+## 7. Several Langfuse projects
 
 Run the tool once per project, each with that project's own keys and its own
 `--root`:
@@ -393,7 +349,7 @@ alone, so migrating several projects into one space is safe.
 
 ---
 
-## 9. Evaluators and evaluation rules
+## 8. Evaluators and evaluation rules
 
 ### LLM-as-judge evaluators
 
@@ -461,7 +417,7 @@ To skip them during a span migration, add `--no-resources` to `run`.
 
 ---
 
-## 10. Troubleshooting
+## 9. Troubleshooting
 
 ### "invalid Space ID", "invalid token" or TLS errors with credentials you know are right
 
@@ -504,13 +460,6 @@ unknown. The tool **will not** blindly resend it, because Arize does not
 de-duplicate spans and a resend could double-count. Run `verify` to see
 whether that day's spans arrived.
 
-### Scores reported as "not applied" or "unmatched"
-
-Arize's update path cannot reach spans older than about 31 days. The tool now
-sends scores with the spans instead, which has no age limit, so on a normal
-run this should not appear. Run `apply-scores` once; anything still reported
-is listed with the reason.
-
 ### Score names were refused
 
 Arize score names allow letters, digits, spaces and underscores. Other
@@ -525,12 +474,8 @@ name against `config --list`.
 
 ---
 
-## 11. Known limitations
+## 10. Known limitations
 
-- **Session-level scores: 8 of 12 landed in testing.** All 12 were sent
-  correctly, but Arize drops some of them, and a *different* set each time on
-  identical data. This is under investigation with Arize. Trace- and
-  span-level scores are not affected.
 - **Live sources.** If Langfuse keeps receiving traffic during the migration,
   the most recent day is migrated as it stood at that moment, and a resume
   will not revisit a completed day.
@@ -538,7 +483,7 @@ name against `config --list`.
   annotation author. When a Langfuse annotation has no comment, its original
   author and time are written into the annotation's note instead; when it has
   a comment, the comment is kept and the original author is not.
-- **Code evaluators** are exported for a manual port ([§9](#9-evaluators-and-evaluation-rules)).
+- **Code evaluators** are exported for a manual port ([§8](#8-evaluators-and-evaluation-rules)).
 - **Filtered evaluation rules** are not scheduled automatically.
 - **Source.** Reads from the Langfuse public API (`LANGFUSE_SOURCE_MODE=api`).
   Verified end to end against self-hosted Langfuse v4.53; the Langfuse v3 /
@@ -548,7 +493,7 @@ name against `config --list`.
 
 ---
 
-## 12. Security
+## 11. Security
 
 - Credentials come only from `.env` or environment variables, never from
   command-line flags.
@@ -562,7 +507,7 @@ name against `config --list`.
 
 ---
 
-## 13. Reference
+## 12. Reference
 
 ### Commands
 
@@ -592,9 +537,9 @@ Options shared by every command, accepted before or after its name:
 | `--dry-run` | Plan only; writes nothing |
 | `--max-days N` | Stop after N days (use 1 for a trial) |
 | `--ingest {auto,arrow,otlp}` | Force an ingest path (default `auto`) |
-| `--no-validate` | Skip local SDK data checks (~30% faster upload) |
+| `--no-validate` | Skip local SDK data checks (use only after a successful trial run) |
 | `--no-verify` | Skip the read-back |
-| `--verify-each-day` | Wait for indexing after every day (slow) |
+| `--verify-each-day` | Wait for indexing after every day instead of once at the end |
 | `--no-resources` | Skip prompts, datasets, score configs, evaluators |
 | `--batch-size N` | Spans per upload (default 10,000) |
 | `--batch-max-mb N` | Size cap per upload (default 32) |
